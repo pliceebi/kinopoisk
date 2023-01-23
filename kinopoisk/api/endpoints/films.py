@@ -5,8 +5,10 @@ from fastapi import (
 )
 
 from kinopoisk.models.film import FilmRead, FilmPatch, FilmCreate, FilmUpdate
-from kinopoisk.services.films import FilmService
+from kinopoisk.services.films_crud import FilmService
+from kinopoisk.services.films_caching import FilmCaching
 from kinopoisk.exceptions import FilmNotFoundError
+from kinopoisk.enums import HTTPError
 
 router = APIRouter(
     prefix='/films',
@@ -20,18 +22,28 @@ def create_film(film: FilmCreate, film_service: FilmService = Depends()):
 
 
 @router.get('/{film_id}', response_model=FilmRead)
-def get_film(film_id: int, film_service: FilmService = Depends()):
+def get_film(film_id: int, film_service: FilmService = Depends(), film_caching: FilmCaching = Depends()):
+    film = film_caching.get_film(film_id)
+    if film:
+        return film
+
     try:
         film = film_service.get_film(film_id)
     except FilmNotFoundError:
-        raise HTTPException(status_code=404, detail="Film not found")
-    else:
-        return film
+        raise HTTPException(status_code=HTTPError.NOT_FOUND, detail="Film not found")
+    film_caching.cache_film(film)
+    return film
 
 
 @router.get('/', response_model=list[FilmRead])
-def get_films(film_service: FilmService = Depends()):
-    return film_service.get_films()
+def get_films(film_service: FilmService = Depends(), film_caching: FilmCaching = Depends()):
+    all_films = film_caching.get_films()
+    if all_films:
+        return all_films
+
+    all_films = film_service.get_films()
+    film_caching.set_films(all_films)
+    return all_films
 
 
 @router.delete('/{film_id}')
@@ -39,7 +51,7 @@ def delete_film(film_id: int, film_service: FilmService = Depends()):
     try:
         film_service.delete_film(film_id)
     except FilmNotFoundError:
-        raise HTTPException(status_code=404, detail="Film not found")
+        raise HTTPException(status_code=HTTPError.NOT_FOUND, detail="Film not found")
     else:
         return {"ok": True}
 
@@ -49,7 +61,7 @@ def patch_film(film_id: int, film: FilmPatch, film_service: FilmService = Depend
     try:
         film = film_service.patch_film(film_id, film)
     except FilmNotFoundError:
-        raise HTTPException(status_code=404, detail="Film not found")
+        raise HTTPException(status_code=HTTPError.NOT_FOUND, detail="Film not found")
     else:
         return film
 
