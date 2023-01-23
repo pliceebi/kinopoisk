@@ -4,6 +4,7 @@ from fastapi import (
     HTTPException,
 )
 
+from kinopoisk.decorators.cache_film import cache_film
 from kinopoisk.models.film import FilmRead, FilmPatch, FilmCreate, FilmUpdate
 from kinopoisk.services.films_crud import FilmService
 from kinopoisk.services.films_caching import FilmCaching
@@ -22,16 +23,12 @@ def create_film(film: FilmCreate, film_service: FilmService = Depends()):
 
 
 @router.get('/{film_id}', response_model=FilmRead)
-def get_film(film_id: int, film_service: FilmService = Depends(), film_caching: FilmCaching = Depends()):
-    film = film_caching.get_film(film_id)
-    if film:
-        return film
-
+@cache_film
+def get_film(film_id: int, film_service: FilmService = Depends()):
     try:
         film = film_service.get_film(film_id)
     except FilmNotFoundError:
         raise HTTPException(status_code=HTTPError.NOT_FOUND, detail="Film not found")
-    film_caching.cache_film(film)
     return film
 
 
