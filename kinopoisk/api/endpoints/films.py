@@ -2,8 +2,8 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    status,
 )
-from http import HTTPStatus
 
 from kinopoisk.decorators.cache_film import cache_film
 from kinopoisk.models.film import FilmRead, FilmPatch, FilmCreate, FilmUpdate
@@ -28,7 +28,7 @@ def get_film(film_id: int, film_service: FilmService = Depends()):
     try:
         film = film_service.get_film(film_id)
     except FilmNotFoundError:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Film not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Film not found")
     return film
 
 
@@ -48,7 +48,7 @@ def delete_film(film_id: int, film_service: FilmService = Depends()):
     try:
         film_service.delete_film(film_id)
     except FilmNotFoundError:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Film not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Film not found")
     else:
         return {"ok": True}
 
@@ -58,7 +58,7 @@ def patch_film(film_id: int, film: FilmPatch, film_service: FilmService = Depend
     try:
         film = film_service.patch_film(film_id, film)
     except FilmNotFoundError:
-        raise HTTPException(status_code=HTTPStatus.NOT_FOUND, detail="Film not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Film not found")
     else:
         return film
 
