@@ -3,12 +3,12 @@ from fastapi import (
     Depends,
     HTTPException,
     status,
+    Path,
 )
 
-from kinopoisk.decorators.cache_film import cache_film
+from kinopoisk.decorators.cache import cache
 from kinopoisk.models.film import FilmRead, FilmPatch, FilmCreate, FilmUpdate
-from kinopoisk.services.films_crud import FilmService
-from kinopoisk.services.films_caching import FilmCaching
+from kinopoisk.services.films_crud import Film, FilmService
 from kinopoisk.exceptions import FilmNotFoundError
 
 router = APIRouter(
@@ -22,25 +22,20 @@ def create_film(film: FilmCreate, film_service: FilmService = Depends()):
     return film_service.create_film(film)
 
 
-@router.get('/{film_id}', response_model=FilmRead)
-@cache_film
-def get_film(film_id: int, film_service: FilmService = Depends()):
+@router.get('/{id}', response_model=FilmRead)
+@cache(instance_class=Film)
+def get_film(id_: int = Path(alias='id'), film_service: FilmService = Depends()):
     try:
-        film = film_service.get_film(film_id)
+        film = film_service.get_film(id_)
     except FilmNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Film not found")
     return film
 
 
 @router.get('/', response_model=list[FilmRead])
-def get_films(film_service: FilmService = Depends(), film_caching: FilmCaching = Depends()):
-    all_films = film_caching.get_films()
-    if all_films:
-        return all_films
-
-    all_films = film_service.get_films()
-    film_caching.set_films(all_films)
-    return all_films
+@cache(instance_class=Film, many=True)
+def get_films(film_service: FilmService = Depends()):
+    return film_service.get_films()
 
 
 @router.delete('/{film_id}')
